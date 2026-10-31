@@ -1,968 +1,710 @@
+const STORAGE_KEY = "mycar_data_v2";
 
-// ======================================
-// MYCAR - SISTEMA PRINCIPAL
-// ======================================
-
-const STORAGE_KEY = "mycar_data_v1";
-
-const money = value =>
-  new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  }).format(Number(value) || 0);
-
-const todayISO = () => {
-  const now = new Date();
-  const offset = now.getTimezoneOffset();
-  return new Date(now.getTime() - offset * 60000)
-    .toISOString().slice(0, 10);
+const defaultData = {
+  vehicle: {
+    brand: "", model: "", year: "", plate: "",
+    odometer: "", fuelType: "Flex"
+  },
+  fuels: [],
+  expenses: [],
+  recurring: [],
+  financing: null,
+  maintenance: []
 };
 
-const dateBR = value =>
-  value
-    ? new Date(value + "T12:00:00").toLocaleDateString("pt-BR")
-    : "—";
-
-const monthKey = date => (date || "").slice(0, 7);
-
-const uid = () =>
-  Date.now().toString(36) +
-  Math.random().toString(36).slice(2, 7);
-
-// ======================================
-// BANCO DE DADOS LOCAL
-// ======================================
-
-function defaultData() {
-  return {
-    vehicle: {
-      name: "Meu veículo",
-      brand: "",
-      model: "",
-      year: "",
-      plate: "",
-      km: 0,
-      fuelType: "Flex"
-    },
-    fuel: [],
-    expenses: [],
-    maintenance: []
-  };
-}
+let data = loadData();
 
 function loadData() {
   try {
-    const saved = JSON.parse(
-      localStorage.getItem(STORAGE_KEY)
-    );
-
-    if (!saved || typeof saved !== "object") {
-      return defaultData();
-    }
-
-    return {
-      ...defaultData(),
-      ...saved,
-      vehicle: {
-        ...defaultData().vehicle,
-        ...(saved.vehicle || {})
-      },
-      fuel: Array.isArray(saved.fuel) ? saved.fuel : [],
-      expenses: Array.isArray(saved.expenses) ? saved.expenses : [],
-      maintenance: Array.isArray(saved.maintenance)
-        ? saved.maintenance
-        : []
-    };
-
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    return saved ? { ...structuredClone(defaultData), ...saved } : structuredClone(defaultData);
   } catch {
-    return defaultData();
+    return structuredClone(defaultData);
   }
 }
-
-let data = loadData();
-let activeModal = null;
-let toastTimer;
 
 function saveData() {
-  try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(data)
-    );
-
-    renderAll();
-
-  } catch (error) {
-    notify("Erro ao salvar. Verifique o espaço disponível.");
-    console.error(error);
-  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  renderAll();
 }
 
-// ======================================
-// FUNÇÕES AUXILIARES
-// ======================================
+function money(value) {
+  return Number(value || 0).toLocaleString("pt-BR", {
+    style: "currency", currency: "BRL"
+  });
+}
 
-function setText(id, value) {
-  const element = document.getElementById(id);
+function number(value) {
+  return Number(value || 0).toLocaleString("pt-BR");
+}
 
-  if (element) {
-    element.textContent = value;
-  }
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function currentMonth() {
+  return today().slice(0, 7);
+}
+
+function monthName(month) {
+  const [year, monthNumber] = month.split("-");
+  return new Date(Number(year), Number(monthNumber) - 1, 1)
+    .toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+}
+
+function formatDate(date) {
+  if (!date) return "—";
+  return new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR");
 }
 
 function escapeHTML(value) {
-  return String(value ?? "").replace(
-    /[&<>"']/g,
-    character => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    })[character]
-  );
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#039;"
+  }[char]));
 }
 
-function sum(items, field) {
-  return items.reduce(
-    (total, item) =>
-      total + (Number(item[field]) || 0),
-    0
-  );
-}
-
-function currentMonthItems(items) {
-  return items.filter(
-    item => monthKey(item.date) === monthKey(todayISO())
-  );
-}
-
-function notify(message) {
+function toast(message) {
   const element = document.getElementById("toast");
-
   element.textContent = message;
   element.classList.add("show");
-
-  clearTimeout(toastTimer);
-
-  toastTimer = setTimeout(() => {
-    element.classList.remove("show");
-  }, 2600);
+  setTimeout(() => element.classList.remove("show"), 2600);
 }
-
-// ======================================
-// CÁLCULOS
-// ======================================
-
-function allCosts() {
-  const fuelCosts = data.fuel.map(item => ({
-    ...item,
-    kind: "fuel",
-    title: "Abastecimento",
-    amount: Number(item.total)
-  }));
-
-  const otherCosts = data.expenses.map(item => ({
-    ...item,
-    kind: "expense",
-    title: item.description,
-    amount: Number(item.amount)
-  }));
-
-  return [...fuelCosts, ...otherCosts].sort(
-    (a, b) => (b.date || "").localeCompare(a.date || "")
-  );
-}
-
-// Calcula o consumo estimado entre abastecimentos
-function consumption() {
-  const entries = [...data.fuel]
-    .filter(item =>
-      Number(item.km) > 0 &&
-      Number(item.liters) > 0
-    )
-    .sort((a, b) => Number(a.km) - Number(b.km));
-
-  if (entries.length < 2) {
-    return null;
-  }
-
-  let liters = 0;
-  let distance = 0;
-
-  for (let i = 1; i < entries.length; i++) {
-    const difference =
-      Number(entries[i].km) -
-      Number(entries[i - 1].km);
-
-    if (difference > 0) {
-      distance += difference;
-      liters += Number(entries[i].liters);
-    }
-  }
-
-  if (!distance || !liters) {
-    return null;
-  }
-
-  return distance / liters;
-}
-
-function nextMaintenance() {
-  const pending = data.maintenance
-    .filter(item => !item.done)
-    .map(item => ({
-      ...item,
-      days: item.date
-        ? Math.ceil(
-            (new Date(item.date + "T23:59:59") - new Date()) /
-            86400000
-          )
-        : 99999
-    }))
-    .sort((a, b) => a.days - b.days);
-
-  return pending[0] || null;
-}
-
-// ======================================
-// RENDERIZAÇÃO GERAL
-// ======================================
-
-function renderAll() {
-  renderVehicle();
-  renderDashboard();
-  renderFuel();
-  renderExpenses();
-  renderMaintenance();
-}
-
-// ======================================
-// VEÍCULO
-// ======================================
-
-function renderVehicle() {
-  const vehicle = data.vehicle;
-
-  const name =
-    [vehicle.brand, vehicle.model]
-      .filter(Boolean)
-      .join(" ") ||
-    vehicle.name ||
-    "Meu veículo";
-
-  setText("hero-vehicle", name);
-
-  setText(
-    "hero-details",
-    [
-      vehicle.year,
-      vehicle.fuelType,
-      Number(vehicle.km || 0).toLocaleString("pt-BR") + " km"
-    ].filter(Boolean).join(" • ")
-  );
-
-  setText(
-    "hero-plate",
-    (vehicle.plate || "SEM PLACA").toUpperCase()
-  );
-
-  setText("profile-name", name);
-
-  setText(
-    "profile-plate",
-    vehicle.plate
-      ? "Placa " + vehicle.plate
-      : "Placa não informada"
-  );
-
-  setText(
-    "profile-km",
-    Number(vehicle.km || 0).toLocaleString("pt-BR") + " km"
-  );
-
-  const form = document.getElementById("vehicle-form");
-
-  Object.entries(vehicle).forEach(([key, value]) => {
-    if (form.elements[key]) {
-      form.elements[key].value = value ?? "";
-    }
-  });
-}
-
-// ======================================
-// DASHBOARD
-// ======================================
-
-function renderDashboard() {
-  const costs = allCosts();
-
-  const monthly = costs.filter(
-    item => monthKey(item.date) === monthKey(todayISO())
-  );
-
-  setText("stat-month", money(sum(monthly, "amount")));
-
-  setText("stat-fuel", data.fuel.length);
-
-  const average = consumption();
-
-  setText(
-    "stat-consumption",
-    average
-      ? average.toFixed(1).replace(".", ",") + " km/L"
-      : "—"
-  );
-
-  const next = nextMaintenance();
-
-  setText(
-    "stat-next",
-    next ? next.title : "Nenhuma"
-  );
-
-  setText(
-    "stat-next-sub",
-    next
-      ? next.date
-        ? "Data: " + dateBR(next.date)
-        : next.km
-          ? "Em " + Number(next.km).toLocaleString("pt-BR") + " km"
-          : "Agendada"
-      : "Cadastre uma manutenção"
-  );
-
-  // Gastos recentes
-
-  const recent = document.getElementById("recent-expenses");
-
-  recent.innerHTML = costs.slice(0, 5).map(item => `
-    <div class="activity-row">
-
-      <div class="activity-icon">
-        ${item.kind === "fuel" ? "⛽" : "↗"}
-      </div>
-
-      <div class="activity-main">
-        <strong>${escapeHTML(item.title)}</strong>
-        <small>${dateBR(item.date)}</small>
-      </div>
-
-      <span class="activity-value">
-        ${money(item.amount)}
-      </span>
-
-    </div>
-  `).join("") ||
-    '<div class="empty-state">Seus lançamentos aparecerão aqui.</div>';
-
-  // Lembretes
-
-  const reminders = document.getElementById(
-    "dashboard-reminders"
-  );
-
-  const list = data.maintenance
-    .filter(item => !item.done)
-    .sort((a, b) =>
-      (a.date || "9999").localeCompare(b.date || "9999")
-    )
-    .slice(0, 4);
-
-  reminders.innerHTML = list.map(item => `
-    <div class="reminder-row">
-      <span class="reminder-mark"></span>
-
-      <div class="reminder-main">
-        <strong>${escapeHTML(item.title)}</strong>
-        <small>
-          ${item.date
-            ? dateBR(item.date)
-            : item.km
-              ? Number(item.km).toLocaleString("pt-BR") + " km"
-              : "Sem data definida"}
-        </small>
-      </div>
-    </div>
-  `).join("") ||
-    '<div class="empty-state">Nenhum lembrete por enquanto.</div>';
-
-  setText(
-    "today-label",
-    new Date().toLocaleDateString("pt-BR", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long"
-    }).toUpperCase()
-  );
-}
-
-// ======================================
-// ABASTECIMENTOS
-// ======================================
-
-function renderFuel() {
-  const total = sum(data.fuel, "total");
-  const liters = sum(data.fuel, "liters");
-
-  setText(
-    "fuel-total-liters",
-    liters.toFixed(1).replace(".", ",") + " L"
-  );
-
-  setText("fuel-total-cost", money(total));
-
-  setText(
-    "fuel-average-price",
-    money(liters ? total / liters : 0)
-  );
-
-  setText(
-    "fuel-count",
-    data.fuel.length + " registros"
-  );
-
-  const tbody = document.getElementById("fuel-table");
-
-  tbody.innerHTML = [...data.fuel]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .map(item => `
-      <tr>
-        <td>${dateBR(item.date)}</td>
-        <td>${escapeHTML(item.station || "—")}</td>
-        <td>${Number(item.km).toLocaleString("pt-BR")} km</td>
-        <td>${Number(item.liters).toLocaleString("pt-BR")} L</td>
-        <td><strong>${money(item.total)}</strong></td>
-        <td>
-          <button class="delete-btn"
-            data-delete="fuel"
-            data-id="${item.id}">
-            Excluir
-          </button>
-        </td>
-      </tr>
-    `).join("");
-
-  document.getElementById("fuel-empty").style.display =
-    data.fuel.length ? "none" : "block";
-}
-
-// ======================================
-// DESPESAS
-// ======================================
-
-function renderExpenses() {
-  const total = sum(data.expenses, "amount");
-
-  const monthly = sum(
-    currentMonthItems(data.expenses),
-    "amount"
-  );
-
-  setText("expense-total", money(total));
-  setText("expense-month", money(monthly));
-  setText("expense-count", data.expenses.length);
-
-  const filter = document.getElementById("expense-filter").value;
-
-  const rows = [...data.expenses]
-    .filter(item =>
-      filter === "all" || item.category === filter
-    )
-    .sort((a, b) => b.date.localeCompare(a.date));
-
-  document.getElementById("expense-table").innerHTML =
-    rows.map(item => `
-      <tr>
-        <td>${dateBR(item.date)}</td>
-        <td>${escapeHTML(item.description)}</td>
-        <td>${escapeHTML(item.category)}</td>
-        <td><strong>${money(item.amount)}</strong></td>
-        <td>
-          <button class="delete-btn"
-            data-delete="expenses"
-            data-id="${item.id}">
-            Excluir
-          </button>
-        </td>
-      </tr>
-    `).join("");
-
-  document.getElementById("expense-empty").style.display =
-    rows.length ? "none" : "block";
-}
-
-// ======================================
-// MANUTENÇÃO
-// ======================================
-
-function renderMaintenance() {
-  const pending = data.maintenance.filter(item => !item.done);
-  const done = data.maintenance.filter(item => item.done);
-  const next = nextMaintenance();
-
-  setText("maintenance-pending", pending.length);
-  setText("maintenance-done", done.length);
-
-  setText(
-    "maintenance-next",
-    next ? next.title : "Nenhum"
-  );
-
-  const list = document.getElementById("maintenance-list");
-
-  const sorted = [...data.maintenance].sort(
-    (a, b) =>
-      (a.done ? 1 : 0) - (b.done ? 1 : 0) ||
-      (a.date || "9999").localeCompare(b.date || "9999")
-  );
-
-  list.innerHTML = sorted.map(item => {
-    const late =
-      !item.done &&
-      item.date &&
-      new Date(item.date + "T23:59:59") < new Date();
-
-    const date = item.date
-      ? new Date(item.date + "T12:00:00")
-      : null;
-
-    return `
-      <div class="maintenance-item">
-
-        <div class="maintenance-date">
-          ${date
-            ? `<strong>${date.getDate().toString().padStart(2, "0")}</strong>
-               <small>${date.toLocaleDateString("pt-BR", {month:"short"}).toUpperCase()}</small>`
-            : `<strong>—</strong><small>KM</small>`}
-        </div>
-
-        <div class="maintenance-details">
-          <strong>${escapeHTML(item.title)}</strong>
-          <small>
-            ${item.date ? dateBR(item.date) : "Sem data"}
-            ${item.km ? " • " + Number(item.km).toLocaleString("pt-BR") + " km" : ""}
-            ${item.notes ? " • " + escapeHTML(item.notes) : ""}
-          </small>
-        </div>
-
-        <span class="status ${item.done ? "done" : late ? "late" : ""}">
-          ${item.done ? "Concluída" : late ? "Atrasada" : "Pendente"}
-        </span>
-
-        <div class="maintenance-actions">
-          ${!item.done
-            ? `<button class="secondary-btn" data-done="${item.id}">Concluir</button>`
-            : ""}
-          <button class="delete-btn"
-            data-delete="maintenance"
-            data-id="${item.id}">✕</button>
-        </div>
-
-      </div>
-    `;
-  }).join("") ||
-    '<div class="empty-state">Nenhuma manutenção cadastrada.</div>';
-}
-
-// ======================================
-// FORMULÁRIOS DOS REGISTROS
-// ======================================
-
-const modalTemplates = {
-  fuel: {
-    title: "Registrar abastecimento",
-    fields: [
-      ["date", "Data", "date", todayISO(), true],
-      ["station", "Posto", "text", "", false],
-      ["km", "Quilometragem (km)", "number", "", true],
-      ["liters", "Quantidade (litros)", "number", "", true],
-      ["price", "Preço por litro (R$)", "number", "", true],
-      ["total", "Valor total (R$)", "number", "", true]
-    ]
-  },
-
-  expense: {
-    title: "Adicionar despesa",
-    fields: [
-      ["date", "Data", "date", todayISO(), true],
-      ["description", "Descrição", "text", "", true],
-      ["category", "Categoria", "select", "", true],
-      ["amount", "Valor (R$)", "number", "", true],
-      ["notes", "Observações", "text", "", false]
-    ]
-  },
-
-  maintenance: {
-    title: "Agendar manutenção",
-    fields: [
-      ["title", "O que precisa ser feito?", "text", "", true],
-      ["date", "Data prevista", "date", "", false],
-      ["km", "Quilometragem prevista", "number", "", false],
-      ["notes", "Observações", "text", "", false]
-    ]
-  }
-};
-
-function openModal(type) {
-  activeModal = type;
-
-  const config = modalTemplates[type];
-
-  setText("modal-title", config.title);
-
-  const fields = document.getElementById("modal-fields");
-
-  fields.innerHTML = config.fields.map(
-    ([name, label, inputType, value, required]) => {
-
-      let control;
-
-      if (inputType === "select") {
-        control = `
-          <select name="${name}" required>
-            <option value="">Selecione</option>
-            ${[
-              "Manutenção",
-              "Documentação",
-              "Seguro",
-              "Estacionamento",
-              "Multa",
-              "Outros"
-            ].map(item => `<option>${item}</option>`).join("")}
-          </select>
-        `;
-      } else {
-        control = `
-          <input
-            name="${name}"
-            type="${inputType}"
-            ${value ? `value="${value}"` : ""}
-            ${inputType === "number" ? 'min="0" step="any"' : ""}
-            ${required ? "required" : ""}
-            placeholder="${inputType === "number" ? "0" : ""}"
-          >
-        `;
-      }
-
-      return `
-        <label class="field ${name === "notes" ? "full" : ""}">
-          ${label}
-          ${control}
-        </label>
-      `;
-    }
-  ).join("");
-
-  // Calcula automaticamente o preço total do abastecimento
-
-  if (type === "fuel") {
-    const total = fields.querySelector('[name="total"]');
-    const liters = fields.querySelector('[name="liters"]');
-    const price = fields.querySelector('[name="price"]');
-
-    const calculate = () => {
-      if (liters.value && price.value) {
-        total.value = (
-          Number(liters.value) * Number(price.value)
-        ).toFixed(2);
-      }
-    };
-
-    liters.addEventListener("input", calculate);
-    price.addEventListener("input", calculate);
-  }
-
-  document.getElementById("modal-backdrop").classList.add("show");
-}
-
-function closeModal() {
-  document.getElementById("modal-backdrop").classList.remove("show");
-  activeModal = null;
-}
-
-// ======================================
-// SALVAR NOVOS REGISTROS
-// ======================================
-
-document.getElementById("record-form").addEventListener(
-  "submit",
-  event => {
-    event.preventDefault();
-
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    const item = Object.fromEntries(formData.entries());
-
-    item.id = uid();
-
-    if (activeModal === "fuel") {
-      item.km = Number(item.km);
-      item.liters = Number(item.liters);
-      item.price = Number(item.price);
-      item.total = Number(item.total);
-
-      if (!item.total && item.liters && item.price) {
-        item.total = item.liters * item.price;
-      }
-
-      data.fuel.push(item);
-
-      if (item.km > Number(data.vehicle.km || 0)) {
-        data.vehicle.km = item.km;
-      }
-
-    } else if (activeModal === "expense") {
-      item.amount = Number(item.amount);
-      data.expenses.push(item);
-
-    } else if (activeModal === "maintenance") {
-      item.km = Number(item.km) || 0;
-      item.done = false;
-
-      data.maintenance.push(item);
-    }
-
-    closeModal();
-    form.reset();
-
-    saveData();
-    notify("Registro salvo com sucesso!");
-  }
-);
-
-// ======================================
-// NAVEGAÇÃO
-// ======================================
 
 function showPage(page) {
-  document.querySelectorAll(".page").forEach(element => {
-    element.classList.toggle(
-      "active",
-      element.id === "page-" + page
-    );
-  });
+  document.querySelectorAll(".page").forEach(item => item.classList.remove("active"));
+  document.querySelectorAll("[data-page]").forEach(item => item.classList.toggle("active", item.dataset.page === page));
 
-  document.querySelectorAll(".nav-item[data-page]").forEach(element => {
-    element.classList.toggle(
-      "active",
-      element.dataset.page === page
-    );
-  });
+  const selected = document.getElementById(`page-${page}`);
+  if (selected) selected.classList.add("active");
 
   const titles = {
     dashboard: "Visão geral",
     fuel: "Abastecimentos",
     expenses: "Despesas",
+    recurring: "Contas mensais",
+    financing: "Financiamento",
     maintenance: "Manutenção",
     vehicle: "Meu veículo"
   };
 
-  setText("page-title", titles[page] || "MyCar");
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
+  document.getElementById("page-title").textContent = titles[page] || "MyCar";
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-// ======================================
-// EVENTOS DE CLIQUE
-// ======================================
-
 document.addEventListener("click", event => {
-
   const pageButton = event.target.closest("[data-page]");
-
-  if (pageButton) {
-    showPage(pageButton.dataset.page);
-    return;
-  }
-
-  const modalButton = event.target.closest("[data-open-modal]");
-
-  if (modalButton) {
-    openModal(modalButton.dataset.openModal);
-    return;
-  }
+  if (pageButton) showPage(pageButton.dataset.page);
 
   const deleteButton = event.target.closest("[data-delete]");
+  if (deleteButton) deleteRecord(deleteButton.dataset.delete, deleteButton.dataset.id);
 
-  if (deleteButton) {
-    if (confirm("Deseja realmente excluir este registro?")) {
-      const type = deleteButton.dataset.delete;
-      const id = deleteButton.dataset.id;
+  const payButton = event.target.closest("[data-pay-recurring]");
+  if (payButton) toggleRecurringPayment(payButton.dataset.payRecurring, payButton.dataset.month);
 
-      data[type] = data[type].filter(item => item.id !== id);
+  const financeButton = event.target.closest("[data-pay-installment]");
+  if (financeButton) payInstallment();
 
-      saveData();
-      notify("Registro excluído.");
+  const finishButton = event.target.closest("[data-finish-maintenance]");
+  if (finishButton) finishMaintenance(finishButton.dataset.finishMaintenance);
+});
+
+// MODAIS
+
+const backdrop = document.getElementById("modal-backdrop");
+const modalForm = document.getElementById("modal-form");
+
+function openModal(title, fields, submitText, onSubmit) {
+  document.getElementById("modal-title").textContent = title;
+  modalForm.innerHTML = `<div class="modal-form">${fields}
+    <button class="primary-btn" type="submit">${submitText}</button>
+  </div>`;
+
+  backdrop.classList.add("open");
+
+  modalForm.onsubmit = event => {
+    event.preventDefault();
+    const formData = new FormData(modalForm);
+    onSubmit(Object.fromEntries(formData.entries()));
+    closeModal();
+  };
+}
+
+function closeModal() {
+  backdrop.classList.remove("open");
+  modalForm.innerHTML = "";
+}
+
+document.getElementById("close-modal").addEventListener("click", closeModal);
+backdrop.addEventListener("click", event => {
+  if (event.target === backdrop) closeModal();
+});
+
+function field(label, name, type = "text", placeholder = "", required = true, value = "") {
+  return `
+    <label>${label}
+      <input name="${name}" type="${type}" placeholder="${placeholder}"
+        value="${escapeHTML(value)}" ${required ? "required" : ""}>
+    </label>`;
+}
+
+function selectField(label, name, options, selected = "") {
+  return `
+    <label>${label}
+      <select name="${name}" required>
+        ${options.map(option => `<option value="${escapeHTML(option)}" ${option === selected ? "selected" : ""}>${escapeHTML(option)}</option>`).join("")}
+      </select>
+    </label>`;
+}
+
+// ABASTECIMENTOS
+
+document.getElementById("add-fuel").addEventListener("click", () => {
+  openModal("Novo abastecimento", `
+    ${field("Data", "date", "date", "", true, today())}
+    ${field("Quilometragem atual (km)", "odometer", "number", "Ex: 85432")}
+    ${field("Quantidade de litros", "liters", "number", "Ex: 40")}
+    ${field("Preço por litro (R$)", "price", "number", "Ex: 5.89")}
+    ${selectField("Combustível", "type", ["Gasolina", "Etanol", "Diesel", "GNV", "Outro"], "Gasolina")}
+    <p class="modal-hint">Informe a quilometragem total que aparece no painel do veículo.</p>
+  `, "Salvar abastecimento", values => {
+    const liters = Number(values.liters);
+    const price = Number(values.price);
+    if (liters <= 0 || price <= 0) return toast("Informe valores válidos.");
+
+    data.fuels.push({
+      id: crypto.randomUUID(),
+      date: values.date,
+      odometer: Number(values.odometer),
+      liters,
+      price,
+      total: liters * price,
+      type: values.type
+    });
+
+    data.fuels.sort((a, b) => a.date.localeCompare(b.date));
+    saveData();
+    toast("Abastecimento registrado!");
+  });
+});
+
+function renderFuel() {
+  const fuels = [...data.fuels].sort((a, b) => b.date.localeCompare(a.date));
+  const total = fuels.reduce((sum, item) => sum + item.total, 0);
+  const liters = fuels.reduce((sum, item) => sum + item.liters, 0);
+  const average = calculateConsumption();
+
+  document.getElementById("fuel-total").textContent = money(total);
+  document.getElementById("fuel-liters").textContent = `${number(liters)} L`;
+  document.getElementById("fuel-average").textContent = average ? `${average.toFixed(1)} km/L` : "—";
+
+  document.getElementById("fuel-table").innerHTML = fuels.map(item => `
+    <tr>
+      <td>${formatDate(item.date)}</td>
+      <td>${number(item.odometer)} km</td>
+      <td>${escapeHTML(item.type)}</td>
+      <td>${number(item.liters)} L</td>
+      <td><strong>${money(item.total)}</strong></td>
+      <td><button class="delete-btn" data-delete="fuel" data-id="${item.id}">Excluir</button></td>
+    </tr>
+  `).join("");
+
+  document.getElementById("fuel-empty").style.display = fuels.length ? "none" : "block";
+}
+
+function calculateConsumption() {
+  const fuels = [...data.fuels]
+    .filter(item => item.odometer > 0 && item.liters > 0)
+    .sort((a, b) => a.odometer - b.odometer);
+
+  if (fuels.length < 2) return 0;
+
+  const first = fuels[0];
+  const last = fuels[fuels.length - 1];
+  const distance = last.odometer - first.odometer;
+  const liters = fuels.slice(1).reduce((sum, item) => sum + item.liters, 0);
+
+  if (distance <= 0 || liters <= 0) return 0;
+  return distance / liters;
+}
+
+// DESPESAS
+
+document.getElementById("add-expense").addEventListener("click", () => {
+  openModal("Nova despesa", `
+    ${field("Descrição", "description", "text", "Ex: Troca de óleo")}
+    ${selectField("Categoria", "category", ["Seguro", "Documentação", "Manutenção", "Estacionamento", "Lavagem", "Outros"])}
+    ${field("Data", "date", "date", "", true, today())}
+    ${field("Valor (R$)", "value", "number", "Ex: 150")}
+  `, "Salvar despesa", values => {
+    if (Number(values.value) <= 0) return toast("Informe um valor válido.");
+    data.expenses.push({
+      id: crypto.randomUUID(),
+      description: values.description,
+      category: values.category,
+      date: values.date,
+      value: Number(values.value)
+    });
+    saveData();
+    toast("Despesa registrada!");
+  });
+});
+
+function renderExpenses() {
+  const filter = document.getElementById("expense-filter").value;
+  const expenses = [...data.expenses]
+    .filter(item => filter === "all" || item.category === filter)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  document.getElementById("expense-table").innerHTML = expenses.map(item => `
+    <tr>
+      <td><strong>${escapeHTML(item.description)}</strong></td>
+      <td>${escapeHTML(item.category)}</td>
+      <td>${formatDate(item.date)}</td>
+      <td>${money(item.value)}</td>
+      <td><button class="delete-btn" data-delete="expense" data-id="${item.id}">Excluir</button></td>
+    </tr>
+  `).join("");
+
+  document.getElementById("expense-empty").style.display = expenses.length ? "none" : "block";
+}
+
+document.getElementById("expense-filter").addEventListener("change", renderExpenses);
+
+// CONTAS MENSAIS / DESPESAS RECORRENTES
+
+document.getElementById("add-recurring").addEventListener("click", () => {
+  openModal("Nova conta mensal", `
+    ${field("Nome da cobrança", "name", "text", "Ex: Seguro do veículo")}
+    ${field("Valor mensal (R$)", "value", "number", "Ex: 350")}
+    ${field("Dia do vencimento", "day", "number", "Ex: 10")}
+    ${field("Primeiro mês de cobrança", "startMonth", "month", "", true, currentMonth())}
+    <p class="modal-hint">A conta aparecerá todos os meses. Você precisará confirmar o pagamento de cada mês.</p>
+  `, "Cadastrar conta", values => {
+    const value = Number(values.value);
+    const day = Number(values.day);
+
+    if (value <= 0 || day < 1 || day > 31) {
+      return toast("Confira o valor e o dia de vencimento.");
     }
 
+    data.recurring.push({
+      id: crypto.randomUUID(),
+      name: values.name,
+      value,
+      day,
+      startMonth: values.startMonth,
+      payments: []
+    });
+
+    saveData();
+    toast("Conta mensal cadastrada!");
+  });
+});
+
+function isRecurringPaid(item, month) {
+  return item.payments.includes(month);
+}
+
+function toggleRecurringPayment(id, month) {
+  const item = data.recurring.find(entry => entry.id === id);
+  if (!item) return;
+
+  if (isRecurringPaid(item, month)) {
+    item.payments = item.payments.filter(payment => payment !== month);
+    toast("Pagamento desmarcado.");
+  } else {
+    item.payments.push(month);
+    toast("Pagamento confirmado!");
+  }
+
+  saveData();
+}
+
+function renderRecurring() {
+  const month = currentMonth();
+  const list = data.recurring.filter(item => item.startMonth <= month);
+
+  const paid = list.filter(item => isRecurringPaid(item, month));
+  const pending = list.filter(item => !isRecurringPaid(item, month));
+  const monthlyTotal = list.reduce((sum, item) => sum + item.value, 0);
+
+  document.getElementById("recurring-total").textContent = money(monthlyTotal);
+  document.getElementById("recurring-paid").textContent = paid.length;
+  document.getElementById("recurring-pending").textContent = pending.length;
+
+  document.getElementById("recurring-list").innerHTML = list.map(item => {
+    const isPaid = isRecurringPaid(item, month);
+    const overdue = !isPaid && Number(today().slice(8, 10)) > item.day;
+
+    return `
+      <article class="recurring-card">
+        <div class="recurring-info">
+          <h4>${escapeHTML(item.name)}</h4>
+          <p>Vencimento: dia ${item.day} · ${monthName(month)}</p>
+          <span class="status ${isPaid ? "paid" : overdue ? "overdue" : "pending"}">
+            ${isPaid ? "✓ Pago" : overdue ? "Vencido" : "Pendente"}
+          </span>
+        </div>
+        <div class="recurring-right">
+          <strong class="recurring-price">${money(item.value)}</strong>
+          <div class="recurring-actions">
+            <button class="small-btn ${isPaid ? "paid-btn" : ""}" data-pay-recurring="${item.id}" data-month="${month}">
+              ${isPaid ? "Desfazer" : "Confirmar pagamento"}
+            </button>
+            <button class="delete-btn" data-delete="recurring" data-id="${item.id}">Excluir</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  document.getElementById("recurring-empty").style.display = list.length ? "none" : "block";
+}
+
+// FINANCIAMENTO
+
+document.getElementById("edit-financing").addEventListener("click", () => {
+  const finance = data.financing || {};
+  const alreadyPaid = finance.paid || 0;
+
+  openModal("Configurar financiamento", `
+    ${field("Valor de compra do veículo (R$)", "purchasePrice", "number", "Ex: 200000", true, finance.purchasePrice || "")}
+    ${field("Valor já pago (R$)", "paid", "number", "Ex: 20000", true, alreadyPaid)}
+    ${field("Valor da parcela mensal (R$)", "installment", "number", "Ex: 2400", true, finance.installment || "")}
+    ${field("Dia do vencimento", "day", "number", "Ex: 15", true, finance.day || "10")}
+    ${field("Primeiro mês das parcelas", "startMonth", "month", "", true, finance.startMonth || currentMonth())}
+    <p class="modal-hint">O valor já pago pode incluir a entrada e parcelas que você pagou antes de cadastrar o MyCar. Os próximos pagamentos serão adicionados ao total automaticamente.</p>
+  `, "Salvar financiamento", values => {
+    const purchasePrice = Number(values.purchasePrice);
+    const paid = Number(values.paid);
+    const installment = Number(values.installment);
+    const day = Number(values.day);
+
+    if (purchasePrice <= 0 || paid < 0 || installment <= 0 || day < 1 || day > 31 || paid > purchasePrice) {
+      return toast("Confira os valores informados.");
+    }
+
+    data.financing = {
+      purchasePrice,
+      paid,
+      installment,
+      day,
+      startMonth: values.startMonth,
+      payments: finance.payments || []
+    };
+
+    saveData();
+    toast("Financiamento atualizado!");
+  });
+});
+
+function payInstallment() {
+  const finance = data.financing;
+  if (!finance) return;
+
+  const remaining = finance.purchasePrice - finance.paid;
+  if (remaining <= 0) return toast("Veículo já quitado!");
+
+  const amount = Math.min(finance.installment, remaining);
+
+  if (!confirm(`Confirmar pagamento de ${money(amount)}?`)) return;
+
+  finance.paid += amount;
+  finance.payments.push({
+    id: crypto.randomUUID(),
+    date: today(),
+    value: amount
+  });
+
+  saveData();
+  toast("Parcela registrada com sucesso!");
+}
+
+function renderFinancing() {
+  const container = document.getElementById("financing-content");
+  const finance = data.financing;
+
+  if (!finance) {
+    container.innerHTML = `
+      <section class="panel empty-state">
+        <h3>Nenhum financiamento cadastrado</h3>
+        <p style="margin:10px 0 18px">Configure os valores do seu veículo para acompanhar a quitação.</p>
+        <button class="primary-btn" id="empty-finance-btn">Configurar financiamento</button>
+      </section>`;
+    document.getElementById("empty-finance-btn").addEventListener("click", () => {
+      document.getElementById("edit-financing").click();
+    });
     return;
   }
 
-  const doneButton = event.target.closest("[data-done]");
+  const remaining = Math.max(0, finance.purchasePrice - finance.paid);
+  const progress = Math.min(100, (finance.paid / finance.purchasePrice) * 100);
+  const installmentsLeft = remaining > 0 ? Math.ceil(remaining / finance.installment) : 0;
+  const isPaidOff = remaining <= 0;
+  const payments = [...(finance.payments || [])].reverse();
 
-  if (doneButton) {
-    const item = data.maintenance.find(
-      item => item.id === doneButton.dataset.done
-    );
+  container.innerHTML = `
+    <section class="finance-hero">
+      <span class="eyebrow">SALDO DEVEDOR</span>
+      <div class="balance">${money(remaining)}</div>
+      <p>${isPaidOff ? "Parabéns! Seu veículo está quitado." : "Este é o valor que falta para quitar seu veículo."}</p>
+      <div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div>
+      <p>${progress.toFixed(1)}% do veículo pago</p>
+    </section>
 
-    if (item) {
-      item.done = true;
-      saveData();
-      notify("Manutenção concluída!");
+    <div class="finance-stats">
+      <article class="finance-stat"><span>Valor do veículo</span><strong>${money(finance.purchasePrice)}</strong></article>
+      <article class="finance-stat"><span>Valor já pago</span><strong style="color:var(--green)">${money(finance.paid)}</strong></article>
+      <article class="finance-stat"><span>Parcela mensal</span><strong>${money(finance.installment)}</strong></article>
+    </div>
+
+    <section class="panel">
+      <div class="panel-heading"><div><span class="eyebrow">PLANEJAMENTO</span><h3>Situação do financiamento</h3></div></div>
+      <div class="finance-details">
+        <div class="finance-detail"><span>Parcelas estimadas restantes</span><strong>${installmentsLeft}</strong></div>
+        <div class="finance-detail"><span>Vencimento mensal</span><strong>Dia ${finance.day}</strong></div>
+        <div class="finance-detail"><span>Início do acompanhamento</span><strong>${monthName(finance.startMonth)}</strong></div>
+        <div class="finance-detail"><span>Percentual quitado</span><strong>${progress.toFixed(1)}%</strong></div>
+      </div>
+      <p class="modal-hint" style="margin-top:15px">Estimativa simples: não considera juros futuros, seguros embutidos ou alterações no contrato bancário.</p>
+      <button class="primary-btn" data-pay-installment ${isPaidOff ? "disabled" : ""} style="width:100%;margin-top:18px">
+        ${isPaidOff ? "Veículo quitado ✓" : `Registrar pagamento de ${money(Math.min(finance.installment, remaining))}`}
+      </button>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading"><div><span class="eyebrow">HISTÓRICO</span><h3>Parcelas registradas</h3></div></div>
+      ${payments.length ? payments.map(payment => `
+        <div class="finance-payment">
+          <div><strong>Pagamento registrado</strong><p>${formatDate(payment.date)}</p></div>
+          <strong style="color:var(--green)">${money(payment.value)}</strong>
+        </div>
+      `).join("") : '<div class="empty-state">Nenhuma parcela registrada pelo MyCar.</div>'}
+    </section>`;
+}
+
+// MANUTENÇÃO
+
+document.getElementById("add-maintenance").addEventListener("click", () => {
+  openModal("Nova manutenção", `
+    ${field("Serviço", "name", "text", "Ex: Troca de óleo")}
+    ${field("Data prevista", "date", "date", "", true, today())}
+    ${field("Quilometragem prevista (km)", "odometer", "number", "Ex: 90000", false)}
+    ${field("Valor estimado (R$)", "value", "number", "Ex: 250", false)}
+  `, "Salvar manutenção", values => {
+    data.maintenance.push({
+      id: crypto.randomUUID(),
+      name: values.name,
+      date: values.date,
+      odometer: Number(values.odometer || 0),
+      value: Number(values.value || 0),
+      completed: false
+    });
+    saveData();
+    toast("Manutenção cadastrada!");
+  });
+});
+
+function finishMaintenance(id) {
+  const item = data.maintenance.find(entry => entry.id === id);
+  if (!item) return;
+  item.completed = !item.completed;
+  saveData();
+  toast(item.completed ? "Manutenção concluída!" : "Manutenção reaberta.");
+}
+
+function renderMaintenance() {
+  const list = [...data.maintenance].sort((a, b) => a.date.localeCompare(b.date));
+
+  document.getElementById("maintenance-list").innerHTML = list.map(item => `
+    <div class="recurring-card">
+      <div class="recurring-info">
+        <h4>${escapeHTML(item.name)}</h4>
+        <p>Data: ${formatDate(item.date)} · ${item.odometer ? `${number(item.odometer)} km` : "Sem quilometragem"}</p>
+        <p>Valor estimado: ${money(item.value)}</p>
+        <span class="status ${item.completed ? "paid" : "pending"}">${item.completed ? "Concluída" : "Pendente"}</span>
+      </div>
+      <div class="recurring-actions">
+        <button class="small-btn ${item.completed ? "paid-btn" : ""}" data-finish-maintenance="${item.id}">
+          ${item.completed ? "Reabrir" : "Concluir"}
+        </button>
+        <button class="delete-btn" data-delete="maintenance" data-id="${item.id}">Excluir</button>
+      </div>
+    </div>
+  `).join("");
+
+  document.getElementById("maintenance-empty").style.display = list.length ? "none" : "block";
+}
+
+// VEÍCULO
+
+function renderVehicle() {
+  const form = document.getElementById("vehicle-form");
+  Object.entries(data.vehicle).forEach(([key, value]) => {
+    const input = form.elements[key];
+    if (input) input.value = value ?? "";
+  });
+
+  const name = [data.vehicle.brand, data.vehicle.model].filter(Boolean).join(" ");
+  document.getElementById("top-vehicle-name").textContent = name || "Meu veículo";
+}
+
+document.getElementById("vehicle-form").addEventListener("submit", event => {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  data.vehicle = Object.fromEntries(form.entries());
+  saveData();
+  toast("Dados do veículo salvos!");
+});
+
+// EXCLUSÃO
+
+function deleteRecord(type, id) {
+  if (!confirm("Tem certeza que deseja excluir este registro?")) return;
+
+  const collections = {
+    fuel: "fuels",
+    expense: "expenses",
+    recurring: "recurring",
+    maintenance: "maintenance"
+  };
+
+  const collection = collections[type];
+  if (!collection) return;
+
+  data[collection] = data[collection].filter(item => item.id !== id);
+  saveData();
+  toast("Registro excluído.");
+}
+
+// DASHBOARD
+
+function renderDashboard() {
+  const month = currentMonth();
+
+  const fuels = data.fuels.filter(item => item.date?.startsWith(month));
+  const expenses = data.expenses.filter(item => item.date?.startsWith(month));
+  const recurring = data.recurring.filter(item =>
+    item.startMonth <= month && isRecurringPaid(item, month)
+  );
+
+  const fuelTotal = fuels.reduce((sum, item) => sum + item.total, 0);
+  const expenseTotal = expenses.reduce((sum, item) => sum + item.value, 0);
+  const recurringTotal = recurring.reduce((sum, item) => sum + item.value, 0);
+  const total = fuelTotal + expenseTotal + recurringTotal;
+
+  const pending = data.recurring.filter(item =>
+    item.startMonth <= month && !isRecurringPaid(item, month)
+  );
+
+  document.getElementById("stat-month-expenses").textContent = money(total);
+  document.getElementById("stat-fuel-count").textContent = data.fuels.length;
+  const average = calculateConsumption();
+  document.getElementById("stat-consumption").textContent = average ? `${average.toFixed(1)} km/L` : "—";
+  document.getElementById("stat-pending").textContent = pending.length;
+
+  document.getElementById("dash-fuel").textContent = money(fuelTotal);
+  document.getElementById("dash-expenses").textContent = money(expenseTotal);
+  document.getElementById("dash-recurring").textContent = money(recurringTotal);
+  document.getElementById("dash-total").textContent = money(total);
+
+  document.getElementById("dashboard-pending").innerHTML = pending.length
+    ? pending.slice(0, 5).map(item => `
+      <div class="summary-line">
+        <span>${escapeHTML(item.name)}</span>
+        <strong>${money(item.value)}</strong>
+      </div>
+    `).join("")
+    : "Nenhuma conta pendente neste mês.";
+
+  const finance = data.financing;
+  document.getElementById("dashboard-financing").innerHTML = finance
+    ? `
+      <div class="summary-line"><span>Saldo devedor</span><strong>${money(Math.max(0, finance.purchasePrice - finance.paid))}</strong></div>
+      <div class="progress-track"><div class="progress-fill" style="width:${Math.min(100, finance.paid / finance.purchasePrice * 100)}%"></div></div>
+      <small style="color:var(--muted)">${(Math.min(100, finance.paid / finance.purchasePrice * 100)).toFixed(1)}% quitado</small>
+    `
+    : "Nenhum financiamento cadastrado.";
+
+  const activities = [
+    ...data.fuels.map(item => ({ label: "Abastecimento", detail: item.type, date: item.date, value: item.total })),
+    ...data.expenses.map(item => ({ label: item.description, detail: item.category, date: item.date, value: item.value })),
+    ...data.maintenance.map(item => ({ label: item.name, detail: item.completed ? "Concluída" : "Manutenção", date: item.date, value: item.value }))
+  ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+
+  document.getElementById("recent-activity").innerHTML = activities.length
+    ? activities.map(item => `
+      <div class="summary-line">
+        <span>${escapeHTML(item.label)} <small style="display:block;color:#777;margin-top:4px">${escapeHTML(item.detail)} · ${formatDate(item.date)}</small></span>
+        <strong>${money(item.value)}</strong>
+      </div>
+    `).join("")
+    : "Nenhuma atividade registrada.";
+}
+
+// BACKUP
+
+document.getElementById("export-btn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `mycar-backup-${today()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  toast("Backup exportado!");
+});
+
+document.getElementById("import-btn").addEventListener("click", () => {
+  document.getElementById("import-file").click();
+});
+
+document.getElementById("import-file").addEventListener("change", async event => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  try {
+    const imported = JSON.parse(await file.text());
+
+    if (!imported.vehicle || !Array.isArray(imported.fuels) ||
+        !Array.isArray(imported.expenses) || !Array.isArray(imported.recurring)) {
+      throw new Error("Arquivo inválido");
     }
+
+    if (!confirm("Importar este backup substituirá os dados atuais. Continuar?")) return;
+
+    data = { ...structuredClone(defaultData), ...imported };
+    saveData();
+    toast("Backup importado!");
+  } catch {
+    toast("Não foi possível importar esse arquivo.");
+  } finally {
+    event.target.value = "";
   }
 });
 
-// ======================================
-// VEÍCULO
-// ======================================
+// ATUALIZAÇÃO GERAL
 
-document.getElementById("vehicle-form").addEventListener(
-  "submit",
-  event => {
-    event.preventDefault();
-
-    const formData = new FormData(event.currentTarget);
-
-    data.vehicle = {
-      ...data.vehicle,
-      ...Object.fromEntries(formData.entries())
-    };
-
-    data.vehicle.km = Number(data.vehicle.km) || 0;
-
-    saveData();
-    notify("Veículo atualizado!");
-  }
-);
-
-// ======================================
-// MODAL
-// ======================================
-
-document.getElementById("close-modal")
-  .addEventListener("click", closeModal);
-
-document.getElementById("cancel-modal")
-  .addEventListener("click", closeModal);
-
-document.getElementById("modal-backdrop")
-  .addEventListener("click", event => {
-    if (event.target.id === "modal-backdrop") {
-      closeModal();
-    }
-  });
-
-// ======================================
-// FILTRO DE DESPESAS
-// ======================================
-
-document.getElementById("expense-filter")
-  .addEventListener("change", renderExpenses);
-
-// ======================================
-// BACKUP
-// ======================================
-
-function exportBackup() {
-  const blob = new Blob(
-    [JSON.stringify(data, null, 2)],
-    { type: "application/json" }
-  );
-
-  const url = URL.createObjectURL(blob);
-
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = `mycar-backup-${todayISO()}.json`;
-
-  link.click();
-
-  URL.revokeObjectURL(url);
-
-  notify("Backup exportado!");
+function renderAll() {
+  renderVehicle();
+  renderFuel();
+  renderExpenses();
+  renderRecurring();
+  renderFinancing();
+  renderMaintenance();
+  renderDashboard();
 }
-
-document.getElementById("backup-btn")
-  .addEventListener("click", exportBackup);
-
-document.getElementById("export-btn")
-  .addEventListener("click", exportBackup);
-
-// ======================================
-// IMPORTAR BACKUP
-// ======================================
-
-document.getElementById("import-btn")
-  .addEventListener("click", () => {
-    document.getElementById("import-file").click();
-  });
-
-document.getElementById("import-file")
-  .addEventListener("change", async event => {
-
-    const file = event.target.files[0];
-
-    if (!file) return;
-
-    try {
-      const imported = JSON.parse(await file.text());
-
-      if (
-        !imported.vehicle ||
-        !Array.isArray(imported.fuel) ||
-        !Array.isArray(imported.expenses) ||
-        !Array.isArray(imported.maintenance)
-      ) {
-        throw new Error("Formato inválido");
-      }
-
-      if (confirm("Importar este backup substituirá os dados atuais. Continuar?")) {
-        data = imported;
-        saveData();
-        notify("Backup importado!");
-      }
-
-    } catch (error) {
-      notify("Não foi possível ler esse backup.");
-    }
-
-    event.target.value = "";
-  });
-
-// ======================================
-// APAGAR TODOS OS DADOS
-// ======================================
-
-document.getElementById("clear-btn")
-  .addEventListener("click", () => {
-
-    if (confirm(
-      "ATENÇÃO: todos os dados deste aparelho serão apagados. Deseja continuar?"
-    )) {
-      data = defaultData();
-      saveData();
-      notify("Dados apagados.");
-    }
-  });
-
-// ======================================
-// INICIALIZAÇÃO
-// ======================================
 
 renderAll();
 
-// Registra o aplicativo para funcionamento offline
+// SERVICE WORKER
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("./service-worker.js")
-      .catch(error => console.error("Erro no Service Worker:", error));
+    navigator.serviceWorker.register("./service-worker.js").catch(error => {
+      console.warn("Service Worker não registrado:", error);
+    });
   });
 }

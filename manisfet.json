@@ -1,13 +1,11 @@
-
 {
-  "name": "MyCar - Controle do Veículo",
+  "name": "MyCar - Gestão do Veículo",
   "short_name": "MyCar",
-  "description": "Controle abastecimentos, despesas e manutenções.",
+  "description": "Gerencie seu veículo, despesas e pagamentos.",
   "start_url": "./index.html",
-  "scope": "./",
   "display": "standalone",
-  "background_color": "#101216",
-  "theme_color": "#101216",
+  "background_color": "#101114",
+  "theme_color": "#101114",
   "orientation": "portrait",
   "icons": [
     {
