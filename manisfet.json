@@ -1,17 +1,12 @@
-
 {
-  "id": "./",
   "name": "MyCar - Gestão do Veículo",
   "short_name": "MyCar",
   "description": "Gerencie seu veículo, despesas e pagamentos.",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "./index.html",
   "display": "standalone",
-  "display_override": ["standalone"],
   "background_color": "#101114",
   "theme_color": "#101114",
   "orientation": "portrait",
-  "prefer_related_applications": false,
   "icons": [
     {
       "src": "assets/icon.svg",
