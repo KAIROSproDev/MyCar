@@ -1,251 +1,440 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#101114">
-  <title>MyCar — Gestão do veículo</title>
+  <meta name="theme-color" content="#101216">
+  <meta name="description" content="MyCar - gerenciamento completo do seu veículo">
+  <title>MyCar | Controle de veículos</title>
+  <link rel="stylesheet" href="css/style.css">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon.svg">
-  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-icon">M</div>
-        <div>
-          <h2>MyCar</h2>
-          <span>GESTÃO INTELIGENTE</span>
-        </div>
+
+<div class="app">
+
+  <aside class="sidebar">
+    <a class="brand" href="#">
+      <span class="brand-icon">M</span>
+      my<span>car</span>
+    </a>
+
+    <p class="side-label">MENU PRINCIPAL</p>
+
+    <nav>
+      <button class="nav-item active" data-page="dashboard">▦ Visão geral</button>
+      <button class="nav-item" data-page="fuel">⛽ Abastecimentos</button>
+      <button class="nav-item" data-page="expenses">↗ Despesas</button>
+      <button class="nav-item" data-page="maintenance">⚙ Manutenção</button>
+      <button class="nav-item" data-page="vehicle">🚘 Meu veículo</button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="tip-card">
+        <span>✦</span>
+        <strong>Seu veículo merece cuidado.</strong>
+        <p>Organize seus gastos e mantenha tudo em dia.</p>
       </div>
-
-      <div class="side-label">MENU PRINCIPAL</div>
-      <nav class="navigation">
-        <button class="nav-item active" data-page="dashboard"><span>▦</span> Visão geral</button>
-        <button class="nav-item" data-page="fuel"><span>⛽</span> Abastecimentos</button>
-        <button class="nav-item" data-page="expenses"><span>↗</span> Despesas</button>
-        <button class="nav-item" data-page="recurring"><span>⟳</span> Contas mensais</button>
-        <button class="nav-item" data-page="financing"><span>▤</span> Financiamento</button>
-        <button class="nav-item" data-page="maintenance"><span>🔧</span> Manutenção</button>
-        <button class="nav-item" data-page="vehicle"><span>🚘</span> Meu veículo</button>
-      </nav>
-
-      <div class="sidebar-bottom">
-        <div class="side-label">DADOS</div>
-        <button class="nav-item" id="export-btn"><span>⇩</span> Exportar backup</button>
-        <button class="nav-item" id="import-btn"><span>⇧</span> Importar backup</button>
-        <input type="file" id="import-file" accept=".json" hidden>
-      </div>
-      <div class="sidebar-footer">MYCAR © 2026</div>
-    </aside>
-
-    <main class="main">
-      <header class="topbar">
-        <div>
-          <div class="eyebrow">PAINEL DE CONTROLE</div>
-          <h1 id="page-title">Visão geral</h1>
-        </div>
-        <button class="vehicle-chip" data-page="vehicle">
-          <span class="vehicle-dot"></span>
-          <span id="top-vehicle-name">Meu veículo</span>
-          <span>⌄</span>
-        </button>
-      </header>
-
-      <section class="page active" id="page-dashboard">
-        <div class="welcome">
-          <div>
-            <span class="eyebrow">SEU VEÍCULO, SOB CONTROLE</span>
-            <h2>Bem-vindo ao MyCar.</h2>
-            <p>Acompanhe seus gastos, pagamentos e manutenção em um só lugar.</p>
-          </div>
-          <div class="welcome-icon">🚘</div>
-        </div>
-
-        <div class="stats-grid">
-          <article class="stat-card">
-            <div class="stat-top"><span>Gastos neste mês</span><span class="stat-icon orange">↗</span></div>
-            <strong id="stat-month-expenses">R$ 0,00</strong>
-            <small>Despesas e abastecimentos</small>
-          </article>
-          <article class="stat-card">
-            <div class="stat-top"><span>Abastecimentos</span><span class="stat-icon blue">⛽</span></div>
-            <strong id="stat-fuel-count">0</strong>
-            <small>Registros realizados</small>
-          </article>
-          <article class="stat-card">
-            <div class="stat-top"><span>Consumo médio</span><span class="stat-icon green">◉</span></div>
-            <strong id="stat-consumption">—</strong>
-            <small>Estimativa em km/L</small>
-          </article>
-          <article class="stat-card">
-            <div class="stat-top"><span>Contas pendentes</span><span class="stat-icon red">!</span></div>
-            <strong id="stat-pending">0</strong>
-            <small>Pagamentos deste mês</small>
-          </article>
-        </div>
-
-        <div class="dashboard-grid">
-          <section class="panel">
-            <div class="panel-heading">
-              <div><span class="eyebrow">FINANCEIRO</span><h3>Resumo de despesas</h3></div>
-              <button class="text-button" data-page="expenses">Ver despesas →</button>
-            </div>
-            <div class="summary-line"><span>Abastecimentos</span><strong id="dash-fuel">R$ 0,00</strong></div>
-            <div class="summary-line"><span>Outras despesas</span><strong id="dash-expenses">R$ 0,00</strong></div>
-            <div class="summary-line"><span>Contas recorrentes pagas</span><strong id="dash-recurring">R$ 0,00</strong></div>
-            <div class="summary-line total"><span>Total no mês</span><strong id="dash-total">R$ 0,00</strong></div>
-          </section>
-
-          <section class="panel">
-            <div class="panel-heading">
-              <div><span class="eyebrow">ATENÇÃO</span><h3>Próximos pagamentos</h3></div>
-              <button class="text-button" data-page="recurring">Ver contas →</button>
-            </div>
-            <div id="dashboard-pending" class="empty-state">Nenhuma conta cadastrada.</div>
-          </section>
-        </div>
-
-        <section class="panel">
-          <div class="panel-heading">
-            <div><span class="eyebrow">ACOMPANHAMENTO</span><h3>Financiamento</h3></div>
-            <button class="text-button" data-page="financing">Detalhes →</button>
-          </div>
-          <div id="dashboard-financing" class="empty-state">Nenhum financiamento cadastrado.</div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-heading">
-            <div><span class="eyebrow">HISTÓRICO</span><h3>Atividades recentes</h3></div>
-          </div>
-          <div id="recent-activity" class="empty-state">Nenhuma atividade registrada.</div>
-        </section>
-      </section>
-
-      <section class="page" id="page-fuel">
-        <div class="page-intro">
-          <div><h2>Abastecimentos</h2><p>Controle o consumo e os gastos com combustível.</p></div>
-          <button class="primary-btn" id="add-fuel">+ Novo abastecimento</button>
-        </div>
-        <div class="stats-grid compact">
-          <article class="stat-card"><span>Total gasto</span><strong id="fuel-total">R$ 0,00</strong></article>
-          <article class="stat-card"><span>Litros abastecidos</span><strong id="fuel-liters">0 L</strong></article>
-          <article class="stat-card"><span>Consumo médio</span><strong id="fuel-average">—</strong></article>
-        </div>
-        <section class="panel">
-          <div class="panel-heading"><h3>Histórico de abastecimentos</h3></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Data</th><th>Quilometragem</th><th>Combustível</th><th>Litros</th><th>Valor</th><th></th></tr></thead>
-              <tbody id="fuel-table"></tbody>
-            </table>
-          </div>
-          <div id="fuel-empty" class="empty-state">Nenhum abastecimento registrado.</div>
-        </section>
-      </section>
-
-      <section class="page" id="page-expenses">
-        <div class="page-intro">
-          <div><h2>Despesas</h2><p>Registre os gastos adicionais do seu veículo.</p></div>
-          <button class="primary-btn" id="add-expense">+ Nova despesa</button>
-        </div>
-        <section class="panel">
-          <div class="panel-heading"><h3>Histórico de despesas</h3>
-            <select id="expense-filter" class="filter-select">
-              <option value="all">Todas as categorias</option>
-              <option value="Seguro">Seguro</option>
-              <option value="Documentação">Documentação</option>
-              <option value="Manutenção">Manutenção</option>
-              <option value="Estacionamento">Estacionamento</option>
-              <option value="Lavagem">Lavagem</option>
-              <option value="Outros">Outros</option>
-            </select>
-          </div>
-          <div class="table-wrap">
-            <table><thead><tr><th>Descrição</th><th>Categoria</th><th>Data</th><th>Valor</th><th></th></tr></thead>
-              <tbody id="expense-table"></tbody>
-            </table>
-          </div>
-          <div id="expense-empty" class="empty-state">Nenhuma despesa registrada.</div>
-        </section>
-      </section>
-
-      <section class="page" id="page-recurring">
-        <div class="page-intro">
-          <div><h2>Contas mensais</h2><p>Cadastre cobranças fixas e confirme cada pagamento.</p></div>
-          <button class="primary-btn" id="add-recurring">+ Nova conta mensal</button>
-        </div>
-        <div class="stats-grid compact">
-          <article class="stat-card"><span>Total mensal cadastrado</span><strong id="recurring-total">R$ 0,00</strong></article>
-          <article class="stat-card"><span>Contas pagas neste mês</span><strong id="recurring-paid">0</strong></article>
-          <article class="stat-card"><span>Contas pendentes</span><strong id="recurring-pending">0</strong></article>
-        </div>
-        <section class="panel">
-          <div class="panel-heading">
-            <div><span class="eyebrow">COMPROMISSOS FIXOS</span><h3>Minhas contas</h3></div>
-          </div>
-          <div id="recurring-list" class="recurring-list"></div>
-          <div id="recurring-empty" class="empty-state">Você ainda não cadastrou contas mensais.</div>
-        </section>
-      </section>
-
-      <section class="page" id="page-financing">
-        <div class="page-intro">
-          <div><h2>Financiamento</h2><p>Acompanhe quanto já pagou e quanto falta para quitar seu veículo.</p></div>
-          <button class="primary-btn" id="edit-financing">⚙ Configurar financiamento</button>
-        </div>
-        <div id="financing-content"></div>
-      </section>
-
-      <section class="page" id="page-maintenance">
-        <div class="page-intro">
-          <div><h2>Manutenção</h2><p>Não perca o momento de cuidar do seu veículo.</p></div>
-          <button class="primary-btn" id="add-maintenance">+ Nova manutenção</button>
-        </div>
-        <section class="panel">
-          <div class="panel-heading"><h3>Manutenções programadas</h3></div>
-          <div id="maintenance-list"></div>
-          <div id="maintenance-empty" class="empty-state">Nenhuma manutenção cadastrada.</div>
-        </section>
-      </section>
-
-      <section class="page" id="page-vehicle">
-        <div class="page-intro"><div><h2>Meu veículo</h2><p>Informações principais do seu carro.</p></div></div>
-        <section class="panel vehicle-panel">
-          <div class="vehicle-illustration">🚘</div>
-          <form id="vehicle-form" class="form-grid">
-            <label>Marca<input name="brand" placeholder="Ex: Toyota"></label>
-            <label>Modelo<input name="model" placeholder="Ex: Corolla"></label>
-            <label>Ano<input name="year" type="number" placeholder="2024"></label>
-            <label>Placa<input name="plate" placeholder="ABC1D23"></label>
-            <label>Quilometragem atual<input name="odometer" type="number" placeholder="85000"></label>
-            <label>Combustível
-              <select name="fuelType"><option value="Flex">Flex</option><option value="Gasolina">Gasolina</option><option value="Etanol">Etanol</option><option value="Diesel">Diesel</option><option value="Elétrico">Elétrico</option><option value="Híbrido">Híbrido</option></select>
-            </label>
-            <div class="form-actions"><button class="primary-btn" type="submit">Salvar veículo</button></div>
-          </form>
-        </section>
-      </section>
-    </main>
-  </div>
-
-  <nav class="mobile-nav">
-    <button class="active" data-page="dashboard"><span>▦</span>Início</button>
-    <button data-page="fuel"><span>⛽</span>Abastecer</button>
-    <button data-page="expenses"><span>↗</span>Despesas</button>
-    <button data-page="recurring"><span>⟳</span>Contas</button>
-    <button data-page="vehicle"><span>🚘</span>Veículo</button>
-  </nav>
-
-  <div class="modal-backdrop" id="modal-backdrop">
-    <div class="modal">
-      <div class="modal-heading"><div><span class="eyebrow">MYCAR</span><h3 id="modal-title">Novo registro</h3></div><button class="close-modal" id="close-modal">×</button></div>
-      <form id="modal-form"></form>
+      <small>MYCAR • VERSÃO 1.0</small>
     </div>
-  </div>
+  </aside>
 
-  <div class="toast" id="toast"></div>
-  <script src="js/app.js"></script>
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <p class="eyebrow" id="today-label">SEU PAINEL</p>
+        <h1 id="page-title">Visão geral</h1>
+      </div>
+
+      <div class="top-actions">
+        <button class="icon-btn" id="backup-btn" title="Exportar backup">⇩</button>
+        <button class="avatar" data-page="vehicle">🚘</button>
+      </div>
+    </header>
+
+    <!-- DASHBOARD -->
+
+    <section class="page active" id="page-dashboard">
+
+      <div class="welcome-row">
+        <div>
+          <p class="muted">BEM-VINDO AO MYCAR</p>
+          <h2>Seu veículo, sob controle.</h2>
+          <p class="muted">Acompanhe seus gastos e mantenha tudo em dia.</p>
+        </div>
+        <button class="primary-btn" data-open-modal="fuel">
+          + Registrar abastecimento
+        </button>
+      </div>
+
+      <div class="vehicle-banner">
+        <div>
+          <span class="pill">● VEÍCULO CADASTRADO</span>
+          <h2 id="hero-vehicle">Meu veículo</h2>
+          <p id="hero-details">Cadastre seu veículo</p>
+          <button class="text-btn" data-page="vehicle">Editar veículo ↗</button>
+        </div>
+        <div class="car-art">🚘</div>
+        <div class="plate-chip" id="hero-plate">SEM PLACA</div>
+      </div>
+
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">ACOMPANHAMENTO</p>
+          <h3>Resumo do veículo</h3>
+        </div>
+        <span class="muted">Este mês</span>
+      </div>
+
+      <div class="stats-grid">
+        <article class="stat-card">
+          <div class="stat-top">Gastos neste mês <span class="stat-icon orange">R$</span></div>
+          <strong id="stat-month">R$ 0,00</strong>
+          <small>Despesas + abastecimentos</small>
+        </article>
+
+        <article class="stat-card">
+          <div class="stat-top">Abastecimentos <span class="stat-icon blue">⛽</span></div>
+          <strong id="stat-fuel">0</strong>
+          <small>Registros no total</small>
+        </article>
+
+        <article class="stat-card">
+          <div class="stat-top">Consumo médio <span class="stat-icon green">↗</span></div>
+          <strong id="stat-consumption">—</strong>
+          <small>Estimativa em km/L</small>
+        </article>
+
+        <article class="stat-card">
+          <div class="stat-top">Próxima manutenção <span class="stat-icon purple">⚙</span></div>
+          <strong id="stat-next">Nenhuma</strong>
+          <small id="stat-next-sub">Cadastre uma manutenção</small>
+        </article>
+      </div>
+
+      <div class="dashboard-grid">
+
+        <article class="panel">
+          <div class="panel-heading">
+            <h3>Gastos recentes</h3>
+            <button class="text-btn" data-page="expenses">Ver todos ↗</button>
+          </div>
+          <div id="recent-expenses" class="activity-list">
+            <div class="empty-state">Seus lançamentos aparecerão aqui.</div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <h3>Fique atento</h3>
+            <button class="text-btn" data-page="maintenance">Ver agenda ↗</button>
+          </div>
+          <div id="dashboard-reminders">
+            <div class="empty-state">Nenhum lembrete.</div>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ABA ABASTECIMENTOS -->
+
+    <section class="page" id="page-fuel">
+
+      <div class="page-intro">
+        <div>
+          <p class="eyebrow">CONTROLE DE CONSUMO</p>
+          <h2>Abastecimentos</h2>
+          <p class="muted">Acompanhe seus abastecimentos e consumo.</p>
+        </div>
+        <button class="primary-btn" data-open-modal="fuel">+ Novo abastecimento</button>
+      </div>
+
+      <div class="stats-grid compact-stats">
+        <article class="stat-card">
+          <small>Total abastecido</small>
+          <strong id="fuel-total-liters">0 L</strong>
+        </article>
+        <article class="stat-card">
+          <small>Total gasto</small>
+          <strong id="fuel-total-cost">R$ 0,00</strong>
+        </article>
+        <article class="stat-card">
+          <small>Preço médio/litro</small>
+          <strong id="fuel-average-price">R$ 0,00</strong>
+        </article>
+      </div>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <h3>Histórico de abastecimentos</h3>
+          <span class="muted" id="fuel-count">0 registros</span>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>DATA</th>
+                <th>POSTO</th>
+                <th>KM</th>
+                <th>LITROS</th>
+                <th>VALOR</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="fuel-table"></tbody>
+          </table>
+        </div>
+
+        <div id="fuel-empty" class="empty-state">
+          Você ainda não registrou abastecimentos.
+        </div>
+      </article>
+    </section>
+
+    <!-- ABA DESPESAS -->
+
+    <section class="page" id="page-expenses">
+
+      <div class="page-intro">
+        <div>
+          <p class="eyebrow">CONTROLE FINANCEIRO</p>
+          <h2>Despesas</h2>
+          <p class="muted">Saiba quanto custa manter seu veículo.</p>
+        </div>
+        <button class="primary-btn" data-open-modal="expense">+ Nova despesa</button>
+      </div>
+
+      <div class="stats-grid compact-stats">
+        <article class="stat-card">
+          <small>Total registrado</small>
+          <strong id="expense-total">R$ 0,00</strong>
+        </article>
+        <article class="stat-card">
+          <small>Neste mês</small>
+          <strong id="expense-month">R$ 0,00</strong>
+        </article>
+        <article class="stat-card">
+          <small>Quantidade</small>
+          <strong id="expense-count">0</strong>
+        </article>
+      </div>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <h3>Histórico de despesas</h3>
+          <select id="expense-filter" class="dark-select">
+            <option value="all">Todas as categorias</option>
+            <option>Manutenção</option>
+            <option>Documentação</option>
+            <option>Seguro</option>
+            <option>Estacionamento</option>
+            <option>Multa</option>
+            <option>Outros</option>
+          </select>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>DATA</th>
+                <th>DESCRIÇÃO</th>
+                <th>CATEGORIA</th>
+                <th>VALOR</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="expense-table"></tbody>
+          </table>
+        </div>
+
+        <div id="expense-empty" class="empty-state">
+          Nenhuma despesa cadastrada.
+        </div>
+      </article>
+    </section>
+
+    <!-- ABA MANUTENÇÃO -->
+
+    <section class="page" id="page-maintenance">
+
+      <div class="page-intro">
+        <div>
+          <p class="eyebrow">CUIDADOS COM O VEÍCULO</p>
+          <h2>Manutenção</h2>
+          <p class="muted">Organize revisões e prazos importantes.</p>
+        </div>
+        <button class="primary-btn" data-open-modal="maintenance">+ Agendar manutenção</button>
+      </div>
+
+      <div class="maintenance-summary">
+        <div>
+          <small>Manutenções pendentes</small>
+          <strong id="maintenance-pending">0</strong>
+        </div>
+        <div>
+          <small>Concluídas</small>
+          <strong id="maintenance-done">0</strong>
+        </div>
+        <div>
+          <small>Próximo cuidado</small>
+          <strong id="maintenance-next">Nenhum</strong>
+        </div>
+      </div>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <h3>Agenda de manutenção</h3>
+        </div>
+        <div id="maintenance-list">
+          <div class="empty-state">Nenhuma manutenção cadastrada.</div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ABA VEÍCULO -->
+
+    <section class="page" id="page-vehicle">
+
+      <div class="page-intro">
+        <div>
+          <p class="eyebrow">SUA GARAGEM</p>
+          <h2>Meu veículo</h2>
+          <p class="muted">Mantenha os dados atualizados.</p>
+        </div>
+      </div>
+
+      <div class="vehicle-layout">
+
+        <article class="panel vehicle-profile">
+          <div class="profile-car">🚘</div>
+          <p class="eyebrow">VEÍCULO PRINCIPAL</p>
+          <h2 id="profile-name">Meu veículo</h2>
+          <p class="muted" id="profile-plate">Placa não informada</p>
+          <hr>
+          <small>QUILOMETRAGEM ATUAL</small>
+          <strong id="profile-km">0 km</strong>
+        </article>
+
+        <article class="panel">
+          <h3>Dados do veículo</h3>
+
+          <form id="vehicle-form" class="form-grid">
+
+            <label class="field full">
+              Nome para identificar
+              <input name="name" placeholder="Meu carro">
+            </label>
+
+            <label class="field">
+              Marca
+              <input name="brand" placeholder="Honda">
+            </label>
+
+            <label class="field">
+              Modelo
+              <input name="model" placeholder="Civic">
+            </label>
+
+            <label class="field">
+              Ano
+              <input name="year" type="number" min="1900" max="2100">
+            </label>
+
+            <label class="field">
+              Placa
+              <input name="plate" placeholder="ABC1D23" maxlength="10">
+            </label>
+
+            <label class="field">
+              Quilometragem
+              <input name="km" type="number" min="0">
+            </label>
+
+            <label class="field">
+              Combustível
+              <select name="fuelType">
+                <option>Flex</option>
+                <option>Gasolina</option>
+                <option>Etanol</option>
+                <option>Diesel</option>
+                <option>GNV</option>
+                <option>Elétrico</option>
+              </select>
+            </label>
+
+            <div class="full form-footer">
+              <button class="primary-btn" type="submit">Salvar informações</button>
+            </div>
+
+          </form>
+        </article>
+
+      </div>
+
+      <article class="panel data-panel">
+        <div>
+          <h3>Gerenciamento de dados</h3>
+          <p class="muted">Faça backups regularmente para não perder seus registros.</p>
+        </div>
+
+        <div class="data-actions">
+          <button class="secondary-btn" id="export-btn">⇩ Exportar backup</button>
+          <button class="secondary-btn" id="import-btn">⇧ Importar backup</button>
+          <button class="danger-btn" id="clear-btn">Apagar dados</button>
+          <input type="file" id="import-file" accept="application/json" hidden>
+        </div>
+      </article>
+
+    </section>
+
+    <footer class="app-footer">
+      MYCAR • FEITO PARA CUIDAR DO SEU CAMINHO
+    </footer>
+
+  </main>
+</div>
+
+<!-- MENU INFERIOR DO CELULAR -->
+
+<nav class="mobile-nav">
+  <button class="nav-item active" data-page="dashboard">▦<small>Início</small></button>
+  <button class="nav-item" data-page="fuel">⛽<small>Combustível</small></button>
+  <button class="nav-item" data-page="expenses">↗<small>Despesas</small></button>
+  <button class="nav-item" data-page="maintenance">⚙<small>Manutenção</small></button>
+  <button class="nav-item" data-page="vehicle">🚘<small>Veículo</small></button>
+</nav>
+
+<!-- JANELA DE CADASTRO -->
+
+<div class="modal-backdrop" id="modal-backdrop">
+  <section class="modal">
+    <div class="modal-heading">
+      <div>
+        <p class="eyebrow">NOVO REGISTRO</p>
+        <h2 id="modal-title">Adicionar</h2>
+      </div>
+      <button class="icon-btn" id="close-modal">✕</button>
+    </div>
+
+    <form id="record-form">
+      <div id="modal-fields" class="form-grid"></div>
+
+      <div class="modal-actions">
+        <button type="button" class="secondary-btn" id="cancel-modal">Cancelar</button>
+        <button type="submit" class="primary-btn">Salvar registro</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/app.js"></script>
 </body>
 </html>
