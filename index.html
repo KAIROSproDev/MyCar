@@ -2,15 +2,74 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Duck Hunter Pixel</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wildlands - Duck Hunter</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main id="game">
-    <canvas id="screen" width="960" height="540"></canvas>
-  </main>
-  <script src="game.js"></script>
+    <main id="game">
+        <section id="menu" class="screen active">
+            <div class="menu-content">
+                <p class="eyebrow">WILDLANDS STUDIOS PRESENTS</p>
+                <h1>WILDLANDS</h1>
+                <h2>DUCK HUNTER</h2>
+                <p class="subtitle">A natureza não perdoa erros.</p>
+
+                <div class="menu-buttons">
+                    <button id="playBtn">JOGAR</button>
+                    <button id="levelsBtn">SELECIONAR FASE</button>
+                    <button id="recordsBtn">REGISTROS</button>
+                </div>
+
+                <p class="small">100 FASES • 10 REGIÕES • CAÇADA EXTREMA</p>
+            </div>
+        </section>
+
+        <section id="levels" class="screen">
+            <header class="panel-header">
+                <button class="backBtn">← VOLTAR</button>
+                <h2>SELEÇÃO DE FASES</h2>
+                <span id="progressText">0/100</span>
+            </header>
+            <div id="levelGrid"></div>
+        </section>
+
+        <section id="records" class="screen">
+            <button class="backBtn">← VOLTAR</button>
+            <h2>REGISTROS</h2>
+            <div class="record-card">
+                <p>Fases concluídas: <strong id="completedCount">0</strong></p>
+                <p>Patos abatidos: <strong id="duckCount">0</strong></p>
+                <p>Melhor pontuação: <strong id="bestScore">0</strong></p>
+            </div>
+        </section>
+
+        <section id="gameScreen" class="screen">
+            <div id="hud">
+                <div class="hud-item">FASE <strong id="hudLevel">01</strong></div>
+                <div class="hud-item">TEMPO <strong id="timer">60</strong></div>
+                <div class="hud-item">PONTOS <strong id="score">0</strong></div>
+                <div class="hud-item">ABATES <strong id="kills">0</strong></div>
+                <div class="hud-item">MUNIÇÃO <strong id="ammo">5/5</strong></div>
+            </div>
+
+            <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+            <div id="gameMessage">
+                <h2 id="messageTitle"></h2>
+                <p id="messageText"></p>
+                <button id="messageButton">CONTINUAR</button>
+            </div>
+
+            <div id="gameControls">
+                <span>CLIQUE PARA ATIRAR</span>
+                <button id="reloadBtn">RECARREGAR [R]</button>
+                <button id="pauseBtn">PAUSAR [ESC]</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="game.js"></script>
 </body>
 </html>
