@@ -708,3 +708,234 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     });
   });
 }
+
+// ======================================
+// DOAÇÕES AO DESENVOLVEDOR
+// ======================================
+
+const donationWallets = {
+  bitcoin: {
+    name: "Bitcoin",
+    network: "Rede Bitcoin",
+    address: "12y5kYVV2XaAdivMN9UyDfKJEQuQxjw9P8"
+  },
+
+  ethereum: {
+    name: "Ethereum",
+    network: "Rede Ethereum",
+    address: "0x8418c225d7fd6feda42ea37603c7c8d024599d0e"
+  },
+
+  solana: {
+    name: "Solana",
+    network: "Rede Solana",
+    address: "4tAnXXtK8vHoCHtRdQ2ZixB3YSLWhUrGe18Yn4C92uBK"
+  },
+
+  lightning: {
+    name: "Bitcoin Lightning",
+    network: "LNURL",
+    address: "Inurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhhqctjvd5x2erxd3sk6efnxglg8jg4"
+  }
+};
+
+// Cria os elementos da área de doação
+const donationElements = document.createElement("div");
+
+donationElements.innerHTML = `
+  <button class="floating-donate" id="open-donation">
+    ♡ Doar ao desenvolvedor
+  </button>
+
+  <div class="donation-backdrop" id="donation-backdrop">
+    <section class="donation-modal">
+
+      <div class="donation-heading">
+        <h2>♡ Apoie o MyCar</h2>
+
+        <button class="close-modal" id="close-donation">
+          ×
+        </button>
+      </div>
+
+      <p class="donation-description">
+        Gostou do MyCar? Você pode apoiar o desenvolvimento
+        fazendo uma doação de qualquer valor.
+        Agradeço muito pelo apoio!
+      </p>
+
+      <div class="donation-options">
+
+        <button class="donation-option selected"
+          data-wallet="bitcoin">
+          <strong>₿ Bitcoin</strong>
+          <span>Rede Bitcoin</span>
+        </button>
+
+        <button class="donation-option"
+          data-wallet="ethereum">
+          <strong>Ξ Ethereum</strong>
+          <span>Rede Ethereum</span>
+        </button>
+
+        <button class="donation-option"
+          data-wallet="solana">
+          <strong>◎ Solana</strong>
+          <span>Rede Solana</span>
+        </button>
+
+        <button class="donation-option"
+          data-wallet="lightning">
+          <strong>⚡ Lightning</strong>
+          <span>Bitcoin LNURL</span>
+        </button>
+
+      </div>
+
+      <div class="donation-address-box">
+
+        <label id="donation-network">
+          Endereço Bitcoin
+        </label>
+
+        <div class="donation-address" id="donation-address"></div>
+
+        <button class="donation-copy" id="copy-donation">
+          Copiar endereço
+        </button>
+
+      </div>
+
+      <p class="donation-note">
+        Após copiar o endereço, abra sua carteira,
+        escolha a rede correspondente e envie o valor
+        que desejar. Confira sempre a rede antes de enviar.
+      </p>
+
+    </section>
+  </div>
+
+  <button class="visit-counter" id="visit-counter"
+    title="Acessos totais ao MyCar">
+    ◉ <span id="visit-count">...</span> acessos
+  </button>
+`;
+
+document.body.appendChild(donationElements);
+
+// Abre e fecha a área de doação
+
+const donationBackdrop =
+  document.getElementById("donation-backdrop");
+
+document.getElementById("open-donation").addEventListener("click", () => {
+  donationBackdrop.classList.add("open");
+});
+
+document.getElementById("close-donation").addEventListener("click", () => {
+  donationBackdrop.classList.remove("open");
+});
+
+donationBackdrop.addEventListener("click", event => {
+  if (event.target === donationBackdrop) {
+    donationBackdrop.classList.remove("open");
+  }
+});
+
+// Seleção da criptomoeda
+
+let selectedWallet = "bitcoin";
+
+function selectDonationWallet(wallet) {
+  const selected = donationWallets[wallet];
+
+  if (!selected) return;
+
+  selectedWallet = wallet;
+
+  document.getElementById("donation-network").textContent =
+    selected.name + " · " + selected.network;
+
+  document.getElementById("donation-address").textContent =
+    selected.address;
+
+  document.querySelectorAll(".donation-option").forEach(button => {
+    button.classList.toggle(
+      "selected",
+      button.dataset.wallet === wallet
+    );
+  });
+}
+
+document.querySelectorAll(".donation-option").forEach(button => {
+  button.addEventListener("click", () => {
+    selectDonationWallet(button.dataset.wallet);
+  });
+});
+
+// Endereço inicial
+selectDonationWallet("bitcoin");
+
+// Copiar endereço
+
+document.getElementById("copy-donation").addEventListener("click", async () => {
+  const address = donationWallets[selectedWallet].address;
+  const button = document.getElementById("copy-donation");
+
+  try {
+    await navigator.clipboard.writeText(address);
+
+    button.textContent = "✓ Endereço copiado!";
+
+    setTimeout(() => {
+      button.textContent = "Copiar endereço";
+    }, 2200);
+
+  } catch (error) {
+    const temporaryInput = document.createElement("textarea");
+
+    temporaryInput.value = address;
+    document.body.appendChild(temporaryInput);
+
+    temporaryInput.select();
+    document.execCommand("copy");
+
+    temporaryInput.remove();
+
+    button.textContent = "✓ Endereço copiado!";
+
+    setTimeout(() => {
+      button.textContent = "Copiar endereço";
+    }, 2200);
+  }
+});
+
+
+// ======================================
+// CONTADOR GLOBAL DE ACESSOS
+// ======================================
+
+async function updateVisitCounter() {
+  const counterElement = document.getElementById("visit-count");
+
+  try {
+    const response = await fetch(
+      "https://counterapi.com/api/mycar-gestao-veiculo-2026/view/site-visits"
+    );
+
+    if (!response.ok) {
+      throw new Error("Não foi possível consultar o contador.");
+    }
+
+    const result = await response.json();
+
+    counterElement.textContent =
+      Number(result.value).toLocaleString("pt-BR");
+
+  } catch (error) {
+    counterElement.textContent = "—";
+    console.warn("Erro no contador de acessos:", error);
+  }
+}
+
+updateVisitCounter();
